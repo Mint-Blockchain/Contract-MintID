@@ -88,10 +88,6 @@ contract MintID is
         _safeMint(account, _quantity);
     }
 
-    function burn(uint256 tokenId) external {
-        super._burn(tokenId);
-    }
-
     /**
      * @inheritdoc IERC2981
      */
@@ -130,14 +126,14 @@ contract MintID is
     }
 
     function setTreasuryAddress(address _addr) external onlyOwner {
-        require(_addr != address(0x0), "MP: Can't set zero address");
+        require(_addr != address(0x0), "MP: Address not be zero");
         treasuryAddress = _addr;
     }
 
     function withdraw() external onlyOwner nonReentrant {
         require(
             treasuryAddress != address(0x0),
-            "MP: Must set Withdrawal address"
+            "MP: Must set withdrawal address"
         );
         (bool success, ) = treasuryAddress.call{value: address(this).balance}(
             ""
