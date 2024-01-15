@@ -4,14 +4,12 @@ pragma solidity ^0.8.20;
 import "erc721a-upgradeable/contracts/ERC721AUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 
 contract MintID is
     ERC721AUpgradeable,
     IERC2981,
-    ReentrancyGuardUpgradeable,
     OwnableUpgradeable,
     PausableUpgradeable,
     UUPSUpgradeable
@@ -42,7 +40,9 @@ contract MintID is
     error InsufficientBalance(address minter);
     error TokenNotMinted(uint256 tokenId);
 
-    constructor() {}
+    constructor() {
+        _disableInitializers();
+    }
 
     function initialize(
         address _address
@@ -130,7 +130,7 @@ contract MintID is
         treasuryAddress = _addr;
     }
 
-    function withdraw() external onlyOwner nonReentrant {
+    function withdraw() external onlyOwner {
         require(
             treasuryAddress != address(0x0),
             "MP: Must set withdrawal address"
