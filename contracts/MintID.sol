@@ -40,6 +40,7 @@ contract MintID is
     error InsufficientBalance(address minter);
     error TokenNotMinted(uint256 tokenId);
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
