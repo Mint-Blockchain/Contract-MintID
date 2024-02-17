@@ -22,14 +22,10 @@ describe("MintID", () => {
   async function deployFixture() {
     const V1contract = await ethers.getContractFactory("MintID");
     const [owner, otherAccount] = await ethers.getSigners();
-    const v1contract = await upgrades.deployProxy(
-      V1contract as any,
-      [treasuryAddress],
-      {
-        initializer: "initialize",
-        kind: "uups",
-      }
-    );
+    const v1contract = await upgrades.deployProxy(V1contract as any, [treasuryAddress], {
+      initializer: "initialize",
+      kind: "uups",
+    });
     const contract = await v1contract.waitForDeployment();
 
     // generate wallets for test
@@ -76,11 +72,7 @@ describe("MintID", () => {
   describe("Mint condition", () => {
     it("Not start mint", async () => {
       const { contract, publicUser } = await loadFixture(deployFixture);
-      await contract.setMintConfig(
-        publicPrice,
-        getNow() + day,
-        getNow() + 2 * day
-      );
+      await contract.setMintConfig(publicPrice, getNow() + day, getNow() + 2 * day);
 
       await expect(
         contract.mint(1, {
@@ -90,11 +82,7 @@ describe("MintID", () => {
     });
     it("Already finish mint", async () => {
       const { contract, publicUser } = await loadFixture(deployFixture);
-      await contract.setMintConfig(
-        publicPrice,
-        getNow() - 2 * day,
-        getNow() - day
-      );
+      await contract.setMintConfig(publicPrice, getNow() - 2 * day, getNow() - day);
 
       await expect(
         contract.mint(1, {
@@ -115,9 +103,7 @@ describe("MintID", () => {
       await expect(await contract.balanceOf(publicUser.address)).to.equal(5);
       await expect(await contract.publiclist(publicUser.address)).to.equal(5);
       await expect(await contract.minted()).to.equal(5);
-      await expect(
-        await ethers.provider.getBalance(await contract.getAddress())
-      ).to.equal(publicPrice * BigInt(5));
+      await expect(await ethers.provider.getBalance(await contract.getAddress())).to.equal(publicPrice * BigInt(5));
     });
     it("Should't mint 6 items", async () => {
       const { contract, publicUser } = await loadFixture(deployFixture);
@@ -136,9 +122,7 @@ describe("MintID", () => {
   describe("Royalty", async () => {
     it("Set wrong royalty beacause out of range", async () => {
       const { contract, publicUser } = await loadFixture(deployFixture);
-      await expect(contract.setRoyalty(101)).to.be.revertedWith(
-        "MP: Royalty can only be between 0 and 10%"
-      );
+      await expect(contract.setRoyalty(101)).to.be.revertedWith("MP: Royalty can only be between 0 and 10%");
     });
     it("Set right royalty", async () => {
       const { contract } = await loadFixture(deployFixture);
@@ -188,9 +172,7 @@ describe("MintID", () => {
       await contract.withdraw();
       const afterBanlance = await ethers.provider.getBalance(treasuryAddress);
       await expect(afterBanlance - beforeBanlance).to.be.equal(usedValue);
-      await expect(
-        await ethers.provider.getBalance(contract.getAddress())
-      ).to.be.equal(0);
+      await expect(await ethers.provider.getBalance(contract.getAddress())).to.be.equal(0);
     });
   });
 
@@ -199,13 +181,9 @@ describe("MintID", () => {
       const { contract, publicUser, owner } = await loadFixture(deployFixture);
       const V2Contract = await ethers.getContractFactory("MintID");
       const v2 = await V2Contract.deploy();
-      const data = contract.interface.encodeFunctionData("setTreasuryAddress", [
-        owner.address,
-      ]);
+      const data = contract.interface.encodeFunctionData("setTreasuryAddress", [owner.address]);
       const publicCaller = contract.connect(publicUser);
-      await expect(
-        (publicCaller as any).upgradeToAndCall(await v2.getAddress(), data)
-      )
+      await expect((publicCaller as any).upgradeToAndCall(await v2.getAddress(), data))
         .to.be.revertedWithCustomError(contract, "OwnableUnauthorizedAccount")
         .withArgs(publicUser.address);
     });
@@ -213,20 +191,55 @@ describe("MintID", () => {
       const { contract, publicUser, owner } = await loadFixture(deployFixture);
       const v2Contract = await ethers.getContractFactory("MintID");
       contract.abi;
-      const upgradeContract = await upgrades.upgradeProxy(
-        contract,
-        v2Contract,
-        {
-          kind: "uups",
-          call: {
-            fn: "setTreasuryAddress",
-            args: [owner.address],
-          },
-        }
-      );
-      await expect(await upgradeContract.treasuryAddress()).to.be.equal(
-        owner.address
-      );
+      const upgradeContract = await upgrades.upgradeProxy(contract, v2Contract, {
+        kind: "uups",
+        call: {
+          fn: "setTreasuryAddress",
+          args: [owner.address],
+        },
+      });
+      await expect(await upgradeContract.treasuryAddress()).to.be.equal(owner.address);
+    });
+  });
+
+  describe("staking", async () => {
+    it("should pass", async () => {
+      const { contract, publicUser, wlUser } = await loadFixture(deployFixture);
+      await setRightContract(contract);
+      const contractCaller = contract.connect(publicUser);
+      const contractCallerWL = contract.connect(wlUser);
+
+      await (contractCaller as any).mint(5, {
+        value: publicPrice * BigInt(5),
+      });
+
+      await expect(await contract.stakingState()).to.be.equal(0);
+
+      await expect((contractCaller as any).stake([1])).to.be.revertedWith("MP: Staking not open");
+
+      await contract.setStakingState(1);
+
+      await expect(await contract.stakingState()).to.be.equal(1);
+
+      await expect((contractCaller as any).stake([])).to.revertedWith("MP: Staking zero tokens");
+
+      await expect(await (contractCaller as any).stakedNum(publicUser.address)).to.be.equal(0);
+
+      await (contractCaller as any).stake([1]);
+
+      await expect(await contract.stakedAddressInfo(publicUser.address, 0)).to.be.equal(1);
+
+      await expect(await (contractCaller as any).stakedNum(publicUser.address)).to.be.equal(1);
+
+      await (contractCaller as any).approve(wlUser, 2);
+
+      await expect((contractCallerWL as any).stake([2])).to.be.revertedWithCustomError(contract, "TransferFromIncorrectOwner");
+
+      await (contractCaller as any).stake([2, 4, 5]);
+
+      await expect(await contract.stakedAddressInfo(publicUser.address, 3)).to.be.equal(5);
+
+      await expect(await (contractCaller as any).stakedNum(publicUser.address)).to.be.equal(4);
     });
   });
 });

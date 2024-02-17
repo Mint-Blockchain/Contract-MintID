@@ -32,6 +32,12 @@ contract MintID is
 
     mapping(address => uint256) public publiclist;
 
+    uint256 public stakingState;
+
+    mapping(address => uint256[]) public stakedAddressInfo;
+
+    event TokensStaked(address indexed owner, uint256[] tokenIds);
+
     error InvalidCaller();
     error MintNotStart();
     error MintFinished();
@@ -151,4 +157,29 @@ contract MintID is
     function _authorizeUpgrade(
         address newImplementation
     ) internal override onlyOwner {}
+
+    function setStakingState(uint256 _state) external onlyOwner {
+        stakingState = _state;
+    }
+
+    function stake(
+        uint256[] calldata tokenIds
+    ) external {
+        require(stakingState == 1, "MP: Staking not open");
+        require(tokenIds.length > 0, "MP: Staking zero tokens");
+        address owner = _msgSender();
+        for (uint256 i = 0; i < tokenIds.length;) {
+            transferFrom(owner, address(this), tokenIds[i]);
+            stakedAddressInfo[owner].push(tokenIds[i]);
+            unchecked {
+                ++i;
+            }
+        }
+        emit TokensStaked(owner, tokenIds);
+    }
+
+    function stakedNum(address staker) external view returns(uint256) {
+        return stakedAddressInfo[staker].length;
+    }
+
 }
