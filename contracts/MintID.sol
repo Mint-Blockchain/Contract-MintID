@@ -151,7 +151,9 @@ contract MintID is
     function supportsInterface(
         bytes4 interfaceId
     ) public view override(ERC721AUpgradeable, IERC165) returns (bool) {
-        return ERC721AUpgradeable.supportsInterface(interfaceId);
+        return
+            ERC721AUpgradeable.supportsInterface(interfaceId) ||
+            interfaceId == type(IERC2981).interfaceId;
     }
 
     function _authorizeUpgrade(
@@ -162,13 +164,11 @@ contract MintID is
         stakingState = _state;
     }
 
-    function stake(
-        uint256[] calldata tokenIds
-    ) external {
+    function stake(uint256[] calldata tokenIds) external {
         require(stakingState == 1, "MP: Staking not open");
         require(tokenIds.length > 0, "MP: Staking zero tokens");
         address owner = _msgSender();
-        for (uint256 i = 0; i < tokenIds.length;) {
+        for (uint256 i = 0; i < tokenIds.length; ) {
             transferFrom(owner, address(this), tokenIds[i]);
             stakedAddressInfo[owner].push(tokenIds[i]);
             unchecked {
@@ -178,8 +178,7 @@ contract MintID is
         emit TokensStaked(owner, tokenIds);
     }
 
-    function stakedNum(address staker) external view returns(uint256) {
+    function stakedNum(address staker) external view returns (uint256) {
         return stakedAddressInfo[staker].length;
     }
-
 }
